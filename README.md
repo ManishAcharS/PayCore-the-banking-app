@@ -51,7 +51,7 @@ A complete, working MVP of a banking & payments app built with **Flutter** (mobi
 
 > Backend deployed on Vercel. Update pp/lib/config.dart with your live backend URL.
 
-Example: https://your-paycore-backend.vercel.app
+Example: https://paycore-banking-app.vercel.app
 
 ## Running Backend Locally
 
