@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
+import 'home_screen.dart';
 
 class SetPinScreen extends StatefulWidget {
   const SetPinScreen({super.key});
@@ -27,6 +27,7 @@ class _SetPinScreenState extends State<SetPinScreen> {
     final token = auth.token;
     if (token != null) {
       final res = await api.pinStatus(token);
+      if (!mounted) return;
       setState(() => _hasPin = res['hasPin'] == true);
     }
   }
@@ -56,6 +57,7 @@ class _SetPinScreenState extends State<SetPinScreen> {
                 final token = auth.token;
                 if (token != null) {
                   final res = await api.setPin(token, _pinController.text);
+                  if (!mounted) return;
                   if (res['success'] == true) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PIN set successfully')));
                     Navigator.pop(context);
