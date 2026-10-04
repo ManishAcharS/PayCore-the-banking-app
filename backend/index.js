@@ -33,7 +33,6 @@ async function connectDB() {
         connectionTimeoutMillis: 2000
       });
       await pgPool.query('SELECT NOW()');
-      console.log('Postgres connected');
     }
   } catch (err) {
     console.error('Postgres connection error:', err);
@@ -44,7 +43,6 @@ async function connectDB() {
       mongoClient = new MongoClient(process.env.MONGODB_URI, { maxPoolSize: 5 });
       await mongoClient.connect();
       mongoDb = mongoClient.db('paycore');
-      console.log('MongoDB connected');
     }
   } catch (err) {
     console.error('MongoDB connection error:', err);
@@ -53,4 +51,9 @@ async function connectDB() {
 
 connectDB();
 
-module.exports = { app, pgPool, mongoDb };
+// Register routes
+require('./app');
+
+module.exports = app;
+module.exports.pgPool = pgPool;
+module.exports.mongoDb = mongoDb;
