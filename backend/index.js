@@ -8,16 +8,13 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Basic health check
 app.get('/', (req, res) => {
   res.json({ message: 'PayCore API is running', version: '1.0.0' });
 });
-
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Database connections (will be initialized)
 const { Pool } = require('pg');
 const { MongoClient } = require('mongodb');
 
@@ -54,9 +51,3 @@ async function connectDB() {
 connectDB();
 
 module.exports = { app, pgPool, mongoDb };
-
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(\Server running on port \\);
-  });
-}

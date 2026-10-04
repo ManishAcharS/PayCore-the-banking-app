@@ -1,8 +1,9 @@
-const { router, authMiddleware } = require('./auth');
-const accountsRouter = require('./accounts');
-const transfersRouter = require('./transfers');
-const pinRouter = require('./pin');
-const qrRouter = require('./qr');
+const { router, authMiddleware } = require('./routes/auth');
+const accountsRouter = require('./routes/accounts');
+const transfersRouter = require('./routes/transfers');
+const pinRouter = require('./routes/pin');
+const qrRouter = require('./routes/qr');
+
 const { app } = require('./index');
 
 app.use('/api/auth', router);
