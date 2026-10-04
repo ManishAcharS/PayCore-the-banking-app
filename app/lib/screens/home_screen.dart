@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import 'send_money_screen.dart';
+import 'history_screen.dart';
 import 'receive_money_screen.dart';
+import 'set_pin_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
