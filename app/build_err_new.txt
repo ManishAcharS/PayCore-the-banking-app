@@ -1,0 +1,78 @@
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+A problem occurred configuring project ':mobile_scanner'.
+> Could not resolve all artifacts for configuration 'classpath'.
+   > Could not download kotlin-gradle-plugin-1.7.22-gradle71.jar (org.jetbrains.kotlin:kotlin-gradle-plugin:1.7.22)
+      > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/1.7.22/kotlin-gradle-plugin-1.7.22-gradle71.jar'.
+         > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/1.7.22/kotlin-gradle-plugin-1.7.22-gradle71.jar'.
+            > No such host is known (repo.maven.apache.org)
+   > Could not download builder-8.3.2.jar (com.android.tools.build:builder:8.3.2)
+      > Could not get resource 'https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.3.2/builder-8.3.2.jar'.
+         > Could not GET 'https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.3.2/builder-8.3.2.jar'.
+            > dl.google.com
+   > Could not download bundletool-1.15.6.jar (com.android.tools.build:bundletool:1.15.6)
+      > Could not get resource 'https://dl.google.com/dl/android/maven2/com/android/tools/build/bundletool/1.15.6/bundletool-1.15.6.jar'.
+         > Could not GET 'https://dl.google.com/dl/android/maven2/com/android/tools/build/bundletool/1.15.6/bundletool-1.15.6.jar'.
+            > No such host is known (dl.google.com)
+   > Could not download kotlin-compiler-embeddable-1.7.22.jar (org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.22)
+      > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/1.7.22/kotlin-compiler-embeddable-1.7.22.jar'.
+         > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/1.7.22/kotlin-compiler-embeddable-1.7.22.jar'.
+            > repo.maven.apache.org
+> Failed to notify project evaluation listener.
+   > java.lang.NullPointerException (no error message)
+   > java.lang.NullPointerException (no error message)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to generate a Build Scan (Powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 7m 48s
+[!] Gradle threw an error while downloading artifacts from the network.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+A problem occurred configuring project ':mobile_scanner'.
+> Could not resolve all artifacts for configuration 'classpath'.
+   > Could not download kotlin-gradle-plugin-1.7.22-gradle71.jar (org.jetbrains.kotlin:kotlin-gradle-plugin:1.7.22)
+      > Could not get resource 'https://repo.maven.apache.
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+A problem occurred configuring project ':mobile_scanner'.
+> Could not resolve all artifacts for configuration 'classpath'.
+   > Could not download kotlin-gradle-plugin-1.7.22-gradle71.jar (org.jetbrains.kotlin:kotlin-gradle-plugin:1.7.22)
+      > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/1.7.22/kotlin-gradle-plugin-1.7.22-gradle71.jar'.
+         > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/1.7.22/kotlin-gradle-plugin-1.7.22-gradle71.jar'.
+            > Got socket exception during request. It might be caused by SSL misconfiguration
+               > Network is unreachable: getsockopt
+   > Could not download builder-8.3.2.jar (com.android.tools.build:builder:8.3.2)
+      > Could not get resource 'https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.3.2/builder-8.3.2.jar'.
+         > Could not GET 'https://dl.google.com/dl/android/maven2/com/android/tools/build/builder/8.3.2/builder-8.3.2.jar'.
+            > dl.google.com
+   > Could not download bundletool-1.15.6.jar (com.android.tools.build:bundletool:1.15.6)
+      > Could not get resource 'https://dl.google.com/dl/android/maven2/com/android/tools/build/bundletool/1.15.6/bundletool-1.15.6.jar'.
+         > Could not GET 'https://dl.google.com/dl/android/maven2/com/android/tools/build/bundletool/1.15.6/bundletool-1.15.6.jar'.
+            > dl.google.com
+   > Could not download kotlin-compiler-embeddable-1.7.22.jar (org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.22)
+      > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/1.7.22/kotlin-compiler-embeddable-1.7.22.jar'.
+         > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/1.7.22/kotlin-compiler-embeddable-1.7.22.jar'.
+            > Got socket exception during request. It might be caused by SSL misconfiguration
+               > Network is unreachable: getsockopt
+> Failed to notify project evaluation listener.
+   > java.lang.NullPointerException (no error message)
+   > java.lang.NullPointerException (no error message)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to generate a Build Scan (Powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 17s
+[!] Gradle threw an error while downloading artifacts from the network.
+Gradle task assembleRelease failed with exit code 1
