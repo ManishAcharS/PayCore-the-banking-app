@@ -27,7 +27,10 @@ async function connectDB() {
     if (process.env.DATABASE_URL) {
       pgPool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        ssl: { rejectUnauthorized: false },
+        max: 2,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000
       });
       await pgPool.query('SELECT NOW()');
       console.log('Postgres connected');
@@ -38,7 +41,7 @@ async function connectDB() {
 
   try {
     if (process.env.MONGODB_URI) {
-      mongoClient = new MongoClient(process.env.MONGODB_URI);
+      mongoClient = new MongoClient(process.env.MONGODB_URI, { maxPoolSize: 5 });
       await mongoClient.connect();
       mongoDb = mongoClient.db('paycore');
       console.log('MongoDB connected');
