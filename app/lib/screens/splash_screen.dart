@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:local_auth/local_auth.dart';
@@ -27,7 +26,9 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _init() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.loadFromPrefs();
-    Timer(const Duration(seconds: 2), () {
+    if (!mounted) return;
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
       if (authService.isAuthenticated) {
         _checkBiometric();
       } else {
@@ -44,19 +45,17 @@ class _SplashScreenState extends State<SplashScreen> {
           localizedReason: 'Authenticate to access PayCore',
           options: const AuthenticationOptions(biometricOnly: false),
         );
-        if (didAuthenticate) {
-          _navigateToHome();
+        if (didAuthenticate && mounted) {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
           return;
         }
       }
     } catch (e) {
       // fall through
     }
-    _navigateToHome();
-  }
-
-  void _navigateToHome() {
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+    if (mounted) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+    }
   }
 
   @override
