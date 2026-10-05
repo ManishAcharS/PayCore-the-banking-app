@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { pgPool } = require('../index');
+const { pgPool } = require('../db');
 const { authMiddleware } = require('./auth');
 
 router.get('/balance', authMiddleware, async (req, res) => {
