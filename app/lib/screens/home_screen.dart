@@ -72,10 +72,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Text('Account Balance', style: TextStyle(fontSize: 16, color: Colors.grey)),
                     const SizedBox(height: 8),
                     Text(
-                      'Rs. ',
+                      'Rs. ${(balanceData?['account']?['balance'] ?? 0).toStringAsFixed(2)}',
                       style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                     ),
-                    Text('Account: '),
+                    Text('Account: ${balanceData?['account']?['account_number'] ?? '—'}'),
                     const Text('SIMULATED FUNDS - NOT REAL MONEY', style: TextStyle(fontSize: 10, color: Colors.red)),
                   ],
                 ),
