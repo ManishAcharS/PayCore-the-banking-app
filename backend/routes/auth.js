@@ -36,7 +36,7 @@ router.post('/register', async (req, res) => {
     const accountNumber = generateAccountNumber();
     await pgPool.query(
       'INSERT INTO accounts (user_id, account_number, balance) VALUES ($1, $2, $3)',
-      [user.id, accountNumber, 10000.00]
+      [user.id, accountNumber, 100000.00]
     );
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ user, token, accountNumber, message: 'Simulated balance, demo app' });
@@ -77,7 +77,7 @@ router.post('/google', async (req, res) => {
       const accountNumber = generateAccountNumber();
       await pgPool.query(
         'INSERT INTO accounts (user_id, account_number, balance) VALUES ($1, $2, $3)',
-        [user.id, accountNumber, 10000.00]
+        [user.id, accountNumber, 100000.00]
       );
     } else {
       user = result.rows[0];
