@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { mongoDb } = require('../index');
+const { mongoDb } = require('../db');
 const { authMiddleware } = require('./auth');
 const { v4: uuidv4 } = require('uuid');
 
