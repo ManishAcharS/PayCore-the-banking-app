@@ -48,8 +48,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 return ListTile(
                   leading: const Icon(Icons.receipt),
                   title: Text(t['description'] ?? 'Transfer'),
-                  subtitle: Text(' ?  • '),
-                  trailing: Text('?', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text('Rs. '),
+                  trailing: Text('Rs. ', style: const TextStyle(fontWeight: FontWeight.bold)),
                 );
               },
             ),
