@@ -6,8 +6,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-
 app.get('/', (req, res) => {
   res.json({ message: 'PayCore API is running', version: '1.0.0' });
 });
@@ -19,7 +17,6 @@ const { Pool } = require('pg');
 const { MongoClient } = require('mongodb');
 
 let pgPool = null;
-let mongoClient = null;
 let mongoDb = null;
 
 async function connectDB() {
@@ -40,7 +37,7 @@ async function connectDB() {
 
   try {
     if (process.env.MONGODB_URI) {
-      mongoClient = new MongoClient(process.env.MONGODB_URI, { maxPoolSize: 5 });
+      const mongoClient = new MongoClient(process.env.MONGODB_URI, { maxPoolSize: 5 });
       await mongoClient.connect();
       mongoDb = mongoClient.db('paycore');
     }
@@ -51,9 +48,14 @@ async function connectDB() {
 
 connectDB();
 
-// Register routes
-require('./app');
-
 module.exports = app;
-module.exports.pgPool = pgPool;
-module.exports.mongoDb = mongoDb;
+Object.defineProperty(module.exports, 'pgPool', {
+  enumerable: true,
+  get: () => pgPool
+});
+Object.defineProperty(module.exports, 'mongoDb', {
+  enumerable: true,
+  get: () => mongoDb
+});
+
+require('./app')(app);
