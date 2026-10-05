@@ -14,8 +14,8 @@ class _HistoryScreenState extends State<HistoryScreen>{
   Future<void> _load() async {
     final a=Provider.of<AuthService>(context,listen:false),api=Provider.of<ApiService>(context,listen:false);
     if(a.token==null){setState(()=>loading=false);return;}
-    try{final h=await api.getHistory(a.token!);if(mounted)setState(()=>{history=h,loading=false,error=null});}
-    catch(_){if(mounted)setState(()=>{loading=false,error='Could not load transaction history'});}
+    try{final h=await api.getHistory(a.token!);if(mounted)setState(() { history=h; loading=false; error=null; });}
+    catch(_){if(mounted)setState(() { loading=false; error='Could not load transaction history'; });}
   }
   @override Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:const Text('Transaction history')),
