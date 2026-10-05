@@ -93,16 +93,54 @@ class PayCoreScanner extends StatefulWidget {
   const PayCoreScanner({super.key});
   @override State<PayCoreScanner> createState()=>_PayCoreScannerState();
 }
+
 class _PayCoreScannerState extends State<PayCoreScanner> with WidgetsBindingObserver{
-  final controller=MobileScannerController();
+  final controller=MobileScannerController(autoStart:false);
   bool handled=false,torch=false;
   String? error;
-  @override void initState(){super.initState();WidgetsBinding.instance.addObserver(this);}
-  @override void dispose(){WidgetsBinding.instance.removeObserver(this);controller.dispose();super.dispose();}
-  @override void didChangeAppLifecycleState(AppLifecycleState state){
-    if(state==AppLifecycleState.resumed&&!handled)controller.start();
-    if(state==AppLifecycleState.paused)controller.stop();
+
+  @override
+  void initState(){
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_)=>_startScanner());
   }
+
+  Future<void> _startScanner() async {
+    if(!mounted||handled)return;
+    setState(()=>error=null);
+    try{
+      await controller.start();
+    }on MobileScannerException catch(e){
+      if(!mounted)return;
+      final message=e.errorCode==MobileScannerErrorCode.permissionDenied
+          ?'Camera permission was denied. Allow camera access for PayCore in Android settings, then tap Retry.'
+          :'Camera could not be started ('+e.errorCode.name+'). Please check that the device camera is available, then tap Retry.';
+      setState(()=>error=message);
+    }catch(_){
+      if(mounted)setState(()=>error='Camera could not be started. Please check camera access and try again.');
+    }
+  }
+
+  @override
+  void dispose(){
+    WidgetsBinding.instance.removeObserver(this);
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state){
+    if(!mounted||handled)return;
+    switch(state){
+      case AppLifecycleState.resumed: _startScanner(); break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden: controller.stop(); break;
+      case AppLifecycleState.detached: break;
+    }
+  }
+
   void detect(BarcodeCapture capture){
     if(handled)return;
     final raw=capture.barcodes.map((b)=>b.rawValue).whereType<String>().firstWhere((s)=>s.trim().isNotEmpty,orElse:()=> '');
@@ -115,17 +153,40 @@ class _PayCoreScannerState extends State<PayCoreScanner> with WidgetsBindingObse
       if(no.isEmpty)throw const FormatException('This QR does not contain a PayCore account number.');
       handled=true;controller.stop();
       Navigator.pop(context,{'accountNumber':no,'name':(parsed['name']??'').toString()});
-    }catch(e){setState(()=>error='Invalid PayCore QR: '+e.toString());controller.stop();}
+    }catch(e){
+      setState(()=>error='Invalid PayCore QR: '+e.toString());
+      controller.stop();
+    }
   }
-  @override Widget build(BuildContext context)=>Scaffold(
-    backgroundColor:Colors.black,appBar:AppBar(title:const Text('Scan & Pay'),actions:[IconButton(onPressed:()=>controller.toggleTorch(),icon:Icon(torch?Icons.flash_on:Icons.flash_off))]),
+
+  Widget _scannerError(BuildContext context,MobileScannerException exception,Widget? child){
+    final message=exception.errorCode==MobileScannerErrorCode.permissionDenied
+        ?'Camera permission is required to scan PayCore QR codes.'
+        :'Camera error: '+exception.errorCode.name+'.';
+    return Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+      const Icon(Icons.no_photography_outlined,size:56),
+      const SizedBox(height:16),
+      Text(message,textAlign:TextAlign.center,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w700)),
+      const SizedBox(height:10),
+      const Text('Grant camera access, then tap Retry.',textAlign:TextAlign.center,style:TextStyle(color:Colors.white60)),
+      const SizedBox(height:18),
+      OutlinedButton.icon(onPressed:_startScanner,icon:const Icon(Icons.refresh),label:const Text('Retry')),
+    ])));
+  }
+
+  @override
+  Widget build(BuildContext context)=>Scaffold(
+    backgroundColor:Colors.black,
+    appBar:AppBar(title:const Text('Scan & Pay'),actions:[
+      IconButton(onPressed:()=>controller.toggleTorch(),icon:Icon(torch?Icons.flash_on:Icons.flash_off)),
+    ]),
     body:Stack(children:[
-      MobileScanner(controller:controller,onDetect:detect),
+      MobileScanner(controller:controller,onDetect:detect,errorBuilder:_scannerError,placeholderBuilder:(context,child)=>const Center(child:CircularProgressIndicator())),
       Center(child:Container(width:270,height:270,decoration:BoxDecoration(border:Border.all(color:PayCoreTheme.accent,width:3),borderRadius:BorderRadius.circular(28)))),
       Positioned(bottom:34,left:20,right:20,child:GlassCard(child:Column(children:[
         Text(error??'Point your camera at a PayCore QR code',textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.w600)),
-        if(error!=null)Padding(padding:const EdgeInsets.only(top:10),child:OutlinedButton.icon(onPressed:(){setState(()=>error=null);controller.start();},icon:const Icon(Icons.refresh),label:const Text('Retry')))
-      ])))
-    ])
+        if(error!=null)Padding(padding:const EdgeInsets.only(top:10),child:OutlinedButton.icon(onPressed:_startScanner,icon:const Icon(Icons.refresh),label:const Text('Retry'))),
+      ]))),
+    ]),
   );
 }
