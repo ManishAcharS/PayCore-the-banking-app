@@ -23,7 +23,7 @@ class _ReceiveMoneyScreenState extends State<ReceiveMoneyScreen>{
       final n=(auth.user?['name']??'User').toString();
       final res=await api.generateQR(auth.token!,no,n);
       if(!mounted)return;
-      setState(()=>{qrData=(res['qrData']??'').toString(),accountNo=no,name=n,loading=false});
+      setState(() { qrData=(res['qrData']??'').toString(); accountNo=no; name=n; loading=false; });
     }catch(_){if(mounted)setState(()=>loading=false);}
   }
   @override Widget build(BuildContext context)=>Scaffold(
