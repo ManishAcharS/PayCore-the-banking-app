@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { pgPool, mongoDb } = require('../index');
+const { pgPool, mongoDb } = require('../db');
 const { authMiddleware } = require('./auth');
 
 router.post('/transfer', authMiddleware, async (req, res) => {
