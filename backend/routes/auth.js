@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { pgPool } = require('../index');
+const { pgPool } = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'demo_secret_key_change_in_prod';
 const generateAccountNumber = () => {
