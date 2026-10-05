@@ -14,13 +14,13 @@ router.post('/transfer', authMiddleware, async (req, res) => {
     await client.query('BEGIN');
 
     const sender = await client.query(
-      'SELECT a.id, a.balance, a.account_number FROM accounts a WHERE a.user_id =  FOR UPDATE',
+      'SELECT a.id, a.balance, a.account_number FROM accounts a WHERE a.user_id = $1 FOR UPDATE',
       [req.userId]
     );
     if (sender.rows.length === 0) throw new Error('Sender account not found');
 
     const receiver = await client.query(
-      'SELECT a.id, a.balance, a.account_number FROM accounts a WHERE a.account_number =  FOR UPDATE',
+      'SELECT a.id, a.balance, a.account_number FROM accounts a WHERE a.account_number = $1 FOR UPDATE',
       [toAccountNumber]
     );
     if (receiver.rows.length === 0) throw new Error('Receiver account not found');
@@ -33,12 +33,20 @@ router.post('/transfer', authMiddleware, async (req, res) => {
       throw new Error('Insufficient balance');
     }
 
-    await client.query('UPDATE accounts SET balance = balance -  WHERE id = ', [amount, sender.rows[0].id]);
-    await client.query('UPDATE accounts SET balance = balance +  WHERE id = ', [amount, receiver.rows[0].id]);
+    await client.query(
+      'UPDATE accounts SET balance = balance - $1 WHERE id = $2',
+      [amount, sender.rows[0].id]
+    );
+    await client.query(
+      'UPDATE accounts SET balance = balance + $1 WHERE id = $2',
+      [amount, receiver.rows[0].id]
+    );
 
     const txn = await client.query(
-      INSERT INTO transactions (from_account_id, to_account_id, amount, description, status)
-       VALUES (, , , , 'COMPLETED') RETURNING *,
+      `INSERT INTO transactions
+       (from_account_id, to_account_id, amount, description, status)
+       VALUES ($1, $2, $3, $4, 'COMPLETED')
+       RETURNING *`,
       [sender.rows[0].id, receiver.rows[0].id, amount, description || 'Transfer']
     );
 
@@ -60,7 +68,11 @@ router.post('/transfer', authMiddleware, async (req, res) => {
       }
     }
 
-    res.json({ success: true, transaction: txn.rows[0], message: 'Simulated transfer - demo only' });
+    res.json({
+      success: true,
+      transaction: txn.rows[0],
+      message: 'Simulated transfer - demo only'
+    });
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (e) {}
     res.status(400).json({ error: err.message });
@@ -72,15 +84,15 @@ router.post('/transfer', authMiddleware, async (req, res) => {
 router.get('/history', authMiddleware, async (req, res) => {
   try {
     const result = await pgPool.query(
-      SELECT t.id, t.amount, t.description, t.status, t.created_at,
-              sa.account_number as from_account,
-              ra.account_number as to_account
+      `SELECT t.id, t.amount, t.description, t.status, t.created_at,
+              sa.account_number AS from_account,
+              ra.account_number AS to_account
        FROM transactions t
        JOIN accounts sa ON sa.id = t.from_account_id
        JOIN accounts ra ON ra.id = t.to_account_id
-       WHERE sa.user_id =  OR ra.user_id = 
+       WHERE sa.user_id = $1 OR ra.user_id = $1
        ORDER BY t.created_at DESC
-       LIMIT 50,
+       LIMIT 50`,
       [req.userId]
     );
     res.json(result.rows);
