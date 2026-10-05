@@ -1,6 +1,7 @@
 {
   "name": "paycore-backend",
   "version": "1.0.0",
+  "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "dev": "node index.js",
