@@ -6,7 +6,7 @@ const { authMiddleware } = require('./auth');
 router.get('/balance', authMiddleware, async (req, res) => {
   try {
     const result = await pgPool.query(
-      'SELECT a.account_number, a.balance, a.id FROM accounts a WHERE a.user_id = ',
+      'SELECT a.account_number, a.balance, a.id FROM accounts a WHERE a.user_id = $1',
       [req.userId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Account not found' });
@@ -19,7 +19,7 @@ router.get('/balance', authMiddleware, async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const result = await pgPool.query(
-      'SELECT a.id, a.account_number, a.balance, a.created_at FROM accounts a WHERE a.user_id = ',
+      'SELECT a.id, a.account_number, a.balance, a.created_at FROM accounts a WHERE a.user_id = $1',
       [req.userId]
     );
     res.json(result.rows);

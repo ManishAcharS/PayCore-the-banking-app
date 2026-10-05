@@ -29,13 +29,13 @@ router.post('/register', async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     const result = await pgPool.query(
-      'INSERT INTO users (name, email, password_hash) VALUES (, , ) RETURNING id, name, email',
+      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
       [name, email, hashed]
     );
     const user = result.rows[0];
     const accountNumber = generateAccountNumber();
     await pgPool.query(
-      'INSERT INTO accounts (user_id, account_number, balance) VALUES (, , )',
+      'INSERT INTO accounts (user_id, account_number, balance) VALUES ($1, $2, $3)',
       [user.id, accountNumber, 10000.00]
     );
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -49,7 +49,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const result = await pgPool.query('SELECT * FROM users WHERE email = ', [email]);
+    const result = await pgPool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
     const user = result.rows[0];
     const valid = await bcrypt.compare(password, user.password_hash);
@@ -65,18 +65,18 @@ router.post('/google', async (req, res) => {
   try {
     const { name, email, googleId } = req.body;
     if (!email || !googleId) return res.status(400).json({ error: 'Missing data' });
-    let result = await pgPool.query('SELECT * FROM users WHERE google_id =  OR email = ', [googleId, email]);
+    let result = await pgPool.query('SELECT * FROM users WHERE google_id = $1 OR email = $2', [googleId, email]);
     let user;
     if (result.rows.length === 0) {
       const hashed = await bcrypt.hash(uuidv4(), 10);
       result = await pgPool.query(
-        'INSERT INTO users (name, email, password_hash, google_id) VALUES (, , , ) RETURNING id, name, email',
+        'INSERT INTO users (name, email, password_hash, google_id) VALUES ($1, $2, $3, $4) RETURNING id, name, email',
         [name || email, email, hashed, googleId]
       );
       user = result.rows[0];
       const accountNumber = generateAccountNumber();
       await pgPool.query(
-        'INSERT INTO accounts (user_id, account_number, balance) VALUES (, , )',
+        'INSERT INTO accounts (user_id, account_number, balance) VALUES ($1, $2, $3)',
         [user.id, accountNumber, 10000.00]
       );
     } else {
@@ -91,7 +91,7 @@ router.post('/google', async (req, res) => {
 
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const result = await pgPool.query('SELECT id, name, email FROM users WHERE id = ', [req.userId]);
+    const result = await pgPool.query('SELECT id, name, email FROM users WHERE id = $1', [req.userId]);
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
