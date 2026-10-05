@@ -127,10 +127,20 @@ class _PayCoreScannerState extends State<PayCoreScanner>
 
     switch (state) {
       case AppLifecycleState.resumed:
-        controller.start();
+        if (!controller.value.isRunning) {
+          controller.start().catchError((error, stackTrace) {
+            debugPrint('PayCore QR scanner resume failed: $error');
+            debugPrintStack(stackTrace: stackTrace);
+          });
+        }
         break;
       case AppLifecycleState.inactive:
-        controller.stop();
+        if (controller.value.isRunning) {
+          controller.stop().catchError((error, stackTrace) {
+            debugPrint('PayCore QR scanner pause failed: $error');
+            debugPrintStack(stackTrace: stackTrace);
+          });
+        }
         break;
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
@@ -158,30 +168,6 @@ class _PayCoreScannerState extends State<PayCoreScanner>
       if (mounted) {
         setState(() => retrying = false);
       }
-    }
-  }
-
-  void _handleScannerError(MobileScannerException exception) {
-    debugPrint(
-      'PayCore QR scanner error: '
-      '${exception.errorCode.name}: '
-      '${exception.errorDetails.message}',
-    );
-
-    if (!mounted) return;
-
-    if (exception.errorCode == MobileScannerErrorCode.permissionDenied) {
-      setState(() {
-        userMessage =
-            'Camera access is required to scan a PayCore QR code. '
-            'Please allow Camera permission for PayCore in Android Settings.';
-      });
-    } else {
-      setState(() {
-        userMessage =
-            'The camera could not be started. Please close any other app '
-            'using the camera and tap Retry.';
-      });
     }
   }
 
@@ -251,6 +237,13 @@ class _PayCoreScannerState extends State<PayCoreScanner>
   ) {
     final permissionDenied =
         exception.errorCode == MobileScannerErrorCode.permissionDenied;
+    final details = exception.errorDetails?.message;
+
+    debugPrint(
+      'PayCore QR scanner error: ' +
+      exception.errorCode.name +
+      (details == null || details.isEmpty ? '' : ': $details'),
+    );
 
     return ColoredBox(
       color: Colors.black,
