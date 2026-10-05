@@ -38,7 +38,7 @@ class AuthService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     final res = await http.post(
-      Uri.parse('/api/auth/login'),
+      Uri.parse('${ApiConfig.baseUrl}/api/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'email': email, 'password': password}),
     );
@@ -54,7 +54,7 @@ class AuthService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> register(String name, String email, String password) async {
     final res = await http.post(
-      Uri.parse('/api/auth/register'),
+      Uri.parse('${ApiConfig.baseUrl}/api/auth/register'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({'name': name, 'email': email, 'password': password}),
     );
@@ -70,7 +70,7 @@ class AuthService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> googleSignIn(Map<String, dynamic> payload) async {
     final res = await http.post(
-      Uri.parse('/api/auth/google'),
+      Uri.parse('${ApiConfig.baseUrl}/api/auth/google'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(payload),
     );
