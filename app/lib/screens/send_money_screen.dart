@@ -105,6 +105,7 @@ class _PayCoreScannerState extends State<PayCoreScanner>
   bool checkingPermission = true;
   bool starting = false;
   bool recovering = false;
+  bool _cameraFlowRunning = false;
   String? userMessage;
 
   @override
@@ -128,7 +129,11 @@ class _PayCoreScannerState extends State<PayCoreScanner>
     if (!mounted || handled) return;
 
     if (state == AppLifecycleState.resumed) {
-      _ensureCameraPermissionAndStart();
+      // The permission dialog itself can trigger a resumed lifecycle event.
+      // Never start a second permission/camera flow while one is active.
+      if (!_cameraFlowRunning) {
+        _ensureCameraPermissionAndStart();
+      }
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
       _stopScanner();
@@ -136,7 +141,9 @@ class _PayCoreScannerState extends State<PayCoreScanner>
   }
 
   Future<void> _ensureCameraPermissionAndStart() async {
-    if (!mounted || handled || recovering) return;
+    if (!mounted || handled || recovering || _cameraFlowRunning) return;
+
+    _cameraFlowRunning = true;
 
     setState(() {
       checkingPermission = true;
@@ -170,14 +177,17 @@ class _PayCoreScannerState extends State<PayCoreScanner>
       debugPrint('PayCore camera permission check failed: $error');
       debugPrintStack(stackTrace: stackTrace);
 
-      if (!mounted) return;
-
-      setState(() {
-        checkingPermission = false;
-        starting = false;
-        userMessage =
-            'Camera permission could not be checked. Tap Retry to try again.';
-      });
+      if (mounted) {
+        setState(() {
+          checkingPermission = false;
+          starting = false;
+          recovering = false;
+          userMessage =
+              'Camera permission could not be checked. Tap Retry to try again.';
+        });
+      }
+    } finally {
+      _cameraFlowRunning = false;
     }
   }
 
@@ -295,15 +305,21 @@ class _PayCoreScannerState extends State<PayCoreScanner>
   }
 
   Future<void> _retryScanner() async {
-    if (!mounted || handled || starting) return;
+    if (!mounted || handled || _cameraFlowRunning) return;
 
-    if (context.mounted) {
-      setState(() {
-        checkingPermission = true;
-        starting = false;
-        userMessage = null;
-      });
-    }
+    // Retry is a complete camera reset. Do not reuse the old controller,
+    // because it may contain a failed/stale CameraX session from the
+    // permission handoff.
+    await _disposeController();
+
+    if (!mounted || handled) return;
+
+    setState(() {
+      checkingPermission = true;
+      starting = false;
+      recovering = false;
+      userMessage = null;
+    });
 
     await _ensureCameraPermissionAndStart();
   }
@@ -381,7 +397,7 @@ class _PayCoreScannerState extends State<PayCoreScanner>
           '${exception.errorDetails?.message}'}',
     );
 
-    final busy = checkingPermission || starting;
+    final busy = checkingPermission || starting || _cameraFlowRunning;
 
     return ColoredBox(
       color: Colors.black,
