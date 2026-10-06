@@ -303,7 +303,6 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
   Widget _cameraError(
     BuildContext context,
     MobileScannerException exception,
-    Widget? child,
   ) {
     final permissionDenied =
         exception.errorCode == MobileScannerErrorCode.permissionDenied;
@@ -417,7 +416,7 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
             controller: controller,
             onDetect: detect,
             errorBuilder: _cameraError,
-            placeholderBuilder: (context, child) => const ColoredBox(
+            placeholderBuilder: (context) => const ColoredBox(
               color: Colors.black,
               child: Center(
                 child: CircularProgressIndicator(),
