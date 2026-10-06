@@ -477,10 +477,49 @@ class _PayCoreScannerState extends State<PayCoreScanner>
               ),
             )
           else
-            const ColoredBox(
+            ColoredBox(
               color: Colors.black,
               child: Center(
-                child: CircularProgressIndicator(),
+                child: busy
+                    ? const CircularProgressIndicator()
+                    : Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.no_photography_outlined,
+                              size: 58,
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Camera permission needed',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              userMessage ??
+                                  'Allow Camera permission for PayCore '
+                                      'to scan a QR code.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            OutlinedButton.icon(
+                              onPressed: _retryScanner,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ),
           Center(
