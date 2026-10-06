@@ -517,6 +517,14 @@ class _PayCoreScannerState extends State<PayCoreScanner>
                               icon: const Icon(Icons.refresh),
                               label: const Text('Retry'),
                             ),
+                            if (userMessage?.contains(
+                                  'Android Settings',
+                                ) ??
+                                false)
+                              TextButton(
+                                onPressed: openAppSettings,
+                                child: const Text('Open Settings'),
+                              ),
                           ],
                         ),
                       ),
