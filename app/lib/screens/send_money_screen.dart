@@ -96,79 +96,149 @@ class PayCoreScanner extends StatefulWidget {
   State<PayCoreScanner> createState() => _PayCoreScannerState();
 }
 
-class _PayCoreScannerState extends State<PayCoreScanner>
-    with WidgetsBindingObserver {
+class _PayCoreScannerState extends State<PayCoreScanner> {
   final MobileScannerController controller = MobileScannerController(
-    autoStart: true,
+    autoStart: false,
+    facing: CameraFacing.back,
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    formats: const [BarcodeFormat.qrCode],
   );
 
   bool handled = false;
-  bool retrying = false;
+  bool starting = true;
+  bool recovering = false;
+  int recoveryAttempts = 0;
   String? userMessage;
+
+  static const int _maxAutomaticRecoveries = 4;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startScanner();
+    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     controller.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!mounted || handled || !controller.value.hasCameraPermission) {
+  Future<void> _startScanner() async {
+    if (!mounted || handled || recovering) return;
+
+    if (!controller.value.hasCameraPermission) {
+      if (mounted) {
+        setState(() {
+          starting = false;
+          userMessage =
+              'Camera access is required to scan a PayCore QR code. '
+              'Allow Camera permission for PayCore, then tap Retry.';
+        });
+      }
       return;
     }
 
-    switch (state) {
-      case AppLifecycleState.resumed:
-        if (!controller.value.isRunning) {
-          controller.start().catchError((error, stackTrace) {
-            debugPrint('PayCore QR scanner resume failed: $error');
-            debugPrintStack(stackTrace: stackTrace);
-          });
-        }
-        break;
-      case AppLifecycleState.inactive:
-        if (controller.value.isRunning) {
-          controller.stop().catchError((error, stackTrace) {
-            debugPrint('PayCore QR scanner pause failed: $error');
-            debugPrintStack(stackTrace: stackTrace);
-          });
-        }
-        break;
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-      case AppLifecycleState.paused:
-        break;
+    if (controller.value.isRunning) {
+      if (mounted) {
+        setState(() {
+          starting = false;
+          recovering = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        starting = true;
+        userMessage = null;
+      });
+    }
+
+    try {
+      await controller.start();
+      if (!mounted || handled) return;
+      setState(() {
+        starting = false;
+        recovering = false;
+        recoveryAttempts = 0;
+      });
+    } on MobileScannerException catch (error, stackTrace) {
+      debugPrint(
+        'PayCore QR scanner start failed: '
+        '${error.errorCode.name}: '
+        '${error.errorDetails?.message ?? 'no details'}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      await _recoverCamera();
+    } catch (error, stackTrace) {
+      debugPrint('PayCore QR scanner start failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      await _recoverCamera();
     }
   }
 
-  Future<void> _retryScanner() async {
-    if (!mounted || handled || retrying) return;
+  Future<void> _recoverCamera() async {
+    if (!mounted || handled || recovering) return;
 
+    if (!controller.value.hasCameraPermission) {
+      if (mounted) {
+        setState(() {
+          starting = false;
+          userMessage =
+              'Camera access is required to scan a PayCore QR code. '
+              'Allow Camera permission for PayCore, then tap Retry.';
+        });
+      }
+      return;
+    }
+
+    if (recoveryAttempts >= _maxAutomaticRecoveries) {
+      if (mounted) {
+        setState(() {
+          starting = false;
+          recovering = false;
+          userMessage =
+              'The camera could not be started. Tap Retry to try again.';
+        });
+      }
+      return;
+    }
+
+    recoveryAttempts++;
+    recovering = true;
+
+    try {
+      if (controller.value.isRunning) {
+        await controller.stop();
+      }
+    } catch (error, stackTrace) {
+      debugPrint('PayCore QR scanner recovery stop failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+
+    await Future<void>.delayed(
+      Duration(milliseconds: 500 * recoveryAttempts),
+    );
+
+    if (!mounted || handled) return;
+    recovering = false;
+    await _startScanner();
+  }
+
+  Future<void> _retryScanner() async {
+    if (!mounted || handled || recovering) return;
+
+    recoveryAttempts = 0;
     setState(() {
-      retrying = true;
+      starting = true;
       userMessage = null;
     });
 
-    try {
-      await controller.stop();
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      await controller.start();
-    } catch (e, stackTrace) {
-      debugPrint('PayCore QR scanner retry failed: $e');
-      debugPrintStack(stackTrace: stackTrace);
-    } finally {
-      if (mounted) {
-        setState(() => retrying = false);
-      }
-    }
+    await _startScanner();
   }
 
   void detect(BarcodeCapture capture) {
@@ -216,8 +286,8 @@ class _PayCoreScannerState extends State<PayCoreScanner>
           'name': (parsed['name'] ?? '').toString(),
         },
       );
-    } catch (e, stackTrace) {
-      debugPrint('PayCore QR parsing failed: $e');
+    } catch (error, stackTrace) {
+      debugPrint('PayCore QR parsing failed: $error');
       debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
@@ -240,10 +310,20 @@ class _PayCoreScannerState extends State<PayCoreScanner>
     final details = exception.errorDetails?.message;
 
     debugPrint(
-      'PayCore QR scanner error: ' +
-      exception.errorCode.name +
-      (details == null || details.isEmpty ? '' : ': $details'),
+      'PayCore QR scanner error: '
+      '${exception.errorCode.name}'
+      '${details == null || details.isEmpty ? '' : ': $details'}',
     );
+
+    if (!permissionDenied && mounted && !recovering && starting) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !handled && !recovering) {
+          _recoverCamera();
+        }
+      });
+    }
+
+    final busy = starting || recovering;
 
     return ColoredBox(
       color: Colors.black,
@@ -263,7 +343,9 @@ class _PayCoreScannerState extends State<PayCoreScanner>
               Text(
                 permissionDenied
                     ? 'Camera permission needed'
-                    : 'Camera temporarily unavailable',
+                    : busy
+                        ? 'Starting camera…'
+                        : 'Camera unavailable',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 20,
@@ -273,10 +355,11 @@ class _PayCoreScannerState extends State<PayCoreScanner>
               const SizedBox(height: 10),
               Text(
                 permissionDenied
-                    ? 'Allow camera access for PayCore in Android Settings, '
-                        'then return here and tap Retry.'
-                    : 'The camera could not be opened. Close other apps that '
-                        'may be using the camera, then tap Retry.',
+                    ? 'Allow Camera permission for PayCore, then tap Retry.'
+                    : busy
+                        ? 'PayCore is reconnecting to the camera.'
+                        : 'PayCore could not access the camera right now. '
+                            'Tap Retry to try again.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white60,
@@ -285,15 +368,15 @@ class _PayCoreScannerState extends State<PayCoreScanner>
               ),
               const SizedBox(height: 22),
               OutlinedButton.icon(
-                onPressed: retrying ? null : _retryScanner,
-                icon: retrying
+                onPressed: busy ? null : _retryScanner,
+                icon: busy
                     ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh),
-                label: Text(retrying ? 'Starting camera…' : 'Retry'),
+                label: Text(busy ? 'Starting camera…' : 'Retry'),
               ),
             ],
           ),
