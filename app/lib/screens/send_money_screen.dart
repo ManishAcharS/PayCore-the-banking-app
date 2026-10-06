@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:local_auth/local_auth.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
@@ -96,60 +97,124 @@ class PayCoreScanner extends StatefulWidget {
   State<PayCoreScanner> createState() => _PayCoreScannerState();
 }
 
-class _PayCoreScannerState extends State<PayCoreScanner> {
-  final MobileScannerController controller = MobileScannerController(
-    autoStart: false,
-    facing: CameraFacing.back,
-    detectionSpeed: DetectionSpeed.noDuplicates,
-    formats: const [BarcodeFormat.qrCode],
-  );
+class _PayCoreScannerState extends State<PayCoreScanner>
+    with WidgetsBindingObserver {
+  MobileScannerController? _controller;
 
   bool handled = false;
-  bool starting = true;
+  bool checkingPermission = true;
+  bool starting = false;
   bool recovering = false;
-  int recoveryAttempts = 0;
   String? userMessage;
-
-  static const int _maxAutomaticRecoveries = 4;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startScanner();
+      _ensureCameraPermissionAndStart();
     });
   }
 
   @override
   void dispose() {
-    controller.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _disposeController();
     super.dispose();
   }
 
-  Future<void> _startScanner() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted || handled) return;
+
+    if (state == AppLifecycleState.resumed) {
+      _ensureCameraPermissionAndStart();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _stopScanner();
+    }
+  }
+
+  Future<void> _ensureCameraPermissionAndStart() async {
     if (!mounted || handled || recovering) return;
 
-    if (!controller.value.hasCameraPermission) {
-      if (mounted) {
-        setState(() {
-          starting = false;
-          userMessage =
-              'Camera access is required to scan a PayCore QR code. '
-              'Allow Camera permission for PayCore, then tap Retry.';
-        });
+    setState(() {
+      checkingPermission = true;
+      userMessage = null;
+    });
+
+    try {
+      var status = await Permission.camera.status;
+
+      if (!status.isGranted) {
+        status = await Permission.camera.request();
       }
-      return;
+
+      if (!mounted || handled) return;
+
+      if (!status.isGranted) {
+        setState(() {
+          checkingPermission = false;
+          starting = false;
+          userMessage = status.isPermanentlyDenied
+              ? 'Camera permission is blocked. Enable Camera permission '
+                  'for PayCore in Android Settings, then tap Retry.'
+              : 'Camera permission is required to scan a PayCore QR code.';
+        });
+        return;
+      }
+
+      checkingPermission = false;
+      await _initializeScanner();
+    } catch (error, stackTrace) {
+      debugPrint('PayCore camera permission check failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        checkingPermission = false;
+        starting = false;
+        userMessage =
+            'Camera permission could not be checked. Tap Retry to try again.';
+      });
+    }
+  }
+
+  Future<void> _initializeScanner() async {
+    if (!mounted || handled) return;
+
+    final existing = _controller;
+    if (existing != null) {
+      if (existing.value.isRunning) {
+        setState(() => starting = false);
+        return;
+      }
+
+      try {
+        await existing.start();
+        if (mounted && !handled) {
+          setState(() {
+            starting = false;
+            userMessage = null;
+          });
+        }
+        return;
+      } catch (error, stackTrace) {
+        debugPrint('PayCore QR scanner restart failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+        await _disposeController();
+      }
     }
 
-    if (controller.value.isRunning) {
-      if (mounted) {
-        setState(() {
-          starting = false;
-          recovering = false;
-        });
-      }
-      return;
-    }
+    final controller = MobileScannerController(
+      autoStart: false,
+      facing: CameraFacing.back,
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      formats: const [BarcodeFormat.qrCode],
+    );
+
+    _controller = controller;
 
     if (mounted) {
       setState(() {
@@ -160,11 +225,13 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
 
     try {
       await controller.start();
+
       if (!mounted || handled) return;
+
       setState(() {
         starting = false;
         recovering = false;
-        recoveryAttempts = 0;
+        userMessage = null;
       });
     } on MobileScannerException catch (error, stackTrace) {
       debugPrint(
@@ -173,30 +240,8 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
         '${error.errorDetails?.message ?? 'no details'}',
       );
       debugPrintStack(stackTrace: stackTrace);
-      await _recoverCamera();
-    } catch (error, stackTrace) {
-      debugPrint('PayCore QR scanner start failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      await _recoverCamera();
-    }
-  }
+      await _disposeController();
 
-  Future<void> _recoverCamera() async {
-    if (!mounted || handled || recovering) return;
-
-    if (!controller.value.hasCameraPermission) {
-      if (mounted) {
-        setState(() {
-          starting = false;
-          userMessage =
-              'Camera access is required to scan a PayCore QR code. '
-              'Allow Camera permission for PayCore, then tap Retry.';
-        });
-      }
-      return;
-    }
-
-    if (recoveryAttempts >= _maxAutomaticRecoveries) {
       if (mounted) {
         setState(() {
           starting = false;
@@ -205,40 +250,62 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
               'The camera could not be started. Tap Retry to try again.';
         });
       }
-      return;
-    }
+    } catch (error, stackTrace) {
+      debugPrint('PayCore QR scanner start failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      await _disposeController();
 
-    recoveryAttempts++;
-    recovering = true;
+      if (mounted) {
+        setState(() {
+          starting = false;
+          recovering = false;
+          userMessage =
+              'The camera could not be started. Tap Retry to try again.';
+        });
+      }
+    }
+  }
+
+  Future<void> _disposeController() async {
+    final controller = _controller;
+    _controller = null;
+
+    if (controller == null) return;
 
     try {
-      if (controller.value.isRunning) {
-        await controller.stop();
-      }
+      await controller.stop();
     } catch (error, stackTrace) {
-      debugPrint('PayCore QR scanner recovery stop failed: $error');
+      debugPrint('PayCore QR scanner stop failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
 
-    await Future<void>.delayed(
-      Duration(milliseconds: 500 * recoveryAttempts),
-    );
+    controller.dispose();
+  }
 
-    if (!mounted || handled) return;
-    recovering = false;
-    await _startScanner();
+  Future<void> _stopScanner() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isRunning) return;
+
+    try {
+      await controller.stop();
+    } catch (error, stackTrace) {
+      debugPrint('PayCore QR scanner pause failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<void> _retryScanner() async {
-    if (!mounted || handled || recovering) return;
+    if (!mounted || handled || starting) return;
 
-    recoveryAttempts = 0;
-    setState(() {
-      starting = true;
-      userMessage = null;
-    });
+    if (context.mounted) {
+      setState(() {
+        checkingPermission = true;
+        starting = false;
+        userMessage = null;
+      });
+    }
 
-    await _startScanner();
+    await _ensureCameraPermissionAndStart();
   }
 
   void detect(BarcodeCapture capture) {
@@ -277,7 +344,10 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
       }
 
       handled = true;
-      controller.stop();
+      final controller = _controller;
+      if (controller != null) {
+        controller.stop();
+      }
 
       Navigator.pop(
         context,
@@ -304,25 +374,14 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
     BuildContext context,
     MobileScannerException exception,
   ) {
-    final permissionDenied =
-        exception.errorCode == MobileScannerErrorCode.permissionDenied;
-    final details = exception.errorDetails?.message;
-
     debugPrint(
       'PayCore QR scanner error: '
       '${exception.errorCode.name}'
-      '${details == null || details.isEmpty ? '' : ': $details'}',
+      '${exception.errorDetails?.message == null ? '' : ': '
+          '${exception.errorDetails?.message}'}',
     );
 
-    if (!permissionDenied && mounted && !recovering && starting) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !handled && !recovering) {
-          _recoverCamera();
-        }
-      });
-    }
-
-    final busy = starting || recovering;
+    final busy = checkingPermission || starting;
 
     return ColoredBox(
       color: Colors.black,
@@ -332,19 +391,10 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                permissionDenied
-                    ? Icons.no_photography_outlined
-                    : Icons.camera_alt_outlined,
-                size: 58,
-              ),
+              const Icon(Icons.camera_alt_outlined, size: 58),
               const SizedBox(height: 18),
               Text(
-                permissionDenied
-                    ? 'Camera permission needed'
-                    : busy
-                        ? 'Starting camera…'
-                        : 'Camera unavailable',
+                busy ? 'Starting camera…' : 'Camera unavailable',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 20,
@@ -353,12 +403,10 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
               ),
               const SizedBox(height: 10),
               Text(
-                permissionDenied
-                    ? 'Allow Camera permission for PayCore, then tap Retry.'
-                    : busy
-                        ? 'PayCore is reconnecting to the camera.'
-                        : 'PayCore could not access the camera right now. '
-                            'Tap Retry to try again.',
+                busy
+                    ? 'PayCore is checking camera access and starting the scanner.'
+                    : userMessage ??
+                        'The camera could not be started. Tap Retry to try again.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white60,
@@ -386,43 +434,55 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+    final busy = checkingPermission || starting;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: const Text('Scan & Pay'),
         actions: [
-          ValueListenableBuilder<MobileScannerState>(
-            valueListenable: controller,
-            builder: (context, state, _) {
-              final enabled = state.isRunning &&
-                  state.torchState != TorchState.unavailable;
+          if (controller != null)
+            ValueListenableBuilder<MobileScannerState>(
+              valueListenable: controller,
+              builder: (context, state, _) {
+                final enabled = state.isRunning &&
+                    state.torchState != TorchState.unavailable;
 
-              return IconButton(
-                onPressed: enabled ? controller.toggleTorch : null,
-                icon: Icon(
-                  state.torchState == TorchState.on
-                      ? Icons.flash_on
-                      : Icons.flash_off,
-                ),
-                tooltip: 'Toggle flashlight',
-              );
-            },
-          ),
+                return IconButton(
+                  onPressed: enabled ? controller.toggleTorch : null,
+                  icon: Icon(
+                    state.torchState == TorchState.on
+                        ? Icons.flash_on
+                        : Icons.flash_off,
+                  ),
+                  tooltip: 'Toggle flashlight',
+                );
+              },
+            ),
         ],
       ),
       body: Stack(
         children: [
-          MobileScanner(
-            controller: controller,
-            onDetect: detect,
-            errorBuilder: _cameraError,
-            placeholderBuilder: (context) => const ColoredBox(
+          if (controller != null)
+            MobileScanner(
+              controller: controller,
+              onDetect: detect,
+              errorBuilder: _cameraError,
+              placeholderBuilder: (context) => const ColoredBox(
+                color: Colors.black,
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            )
+          else
+            const ColoredBox(
               color: Colors.black,
               child: Center(
                 child: CircularProgressIndicator(),
               ),
             ),
-          ),
           Center(
             child: Container(
               width: 270,
@@ -442,8 +502,10 @@ class _PayCoreScannerState extends State<PayCoreScanner> {
             right: 20,
             child: GlassCard(
               child: Text(
-                userMessage ??
-                    'Point your camera at a PayCore QR code',
+                busy
+                    ? 'Preparing camera…'
+                    : userMessage ??
+                        'Point your camera at a PayCore QR code',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
